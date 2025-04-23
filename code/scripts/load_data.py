@@ -11,38 +11,52 @@ class DataLoader:
 
     def get_training_data(self, split='train'):
         """Load and combine normalized data for the specified split (train or test)."""
-
-        # Load images from directories
-        horse_dir = os.path.join(self.data_path, f"{split}A")
-        zebra_dir = os.path.join(self.data_path, f"{split}B")
-
-        # Count files to create appropriate label arrays
-        horse_files = len([f for f in os.listdir(horse_dir)
-                          if os.path.isfile(os.path.join(horse_dir, f))])
-        zebra_files = len([f for f in os.listdir(zebra_dir)
-                          if os.path.isfile(os.path.join(zebra_dir, f))])
-
-        # Create datasets with labels directly
+        # Load the image datasets without labels first
         horse_dataset = tf.keras.utils.image_dataset_from_directory(
-            horse_dir,
-            labels=tf.zeros(horse_files, dtype=tf.int32),
-            label_mode="int",
+            os.path.join(self.data_path, f"{split}A"),
+            label_mode=None,  # No labels from directory structure
             image_size=(256, 256),
             batch_size=self.batch_size
         )
 
         zebra_dataset = tf.keras.utils.image_dataset_from_directory(
-            zebra_dir,
-            labels=tf.ones(zebra_files, dtype=tf.int32),
-            label_mode="int",
+            os.path.join(self.data_path, f"{split}B"),
+            label_mode=None,  # No labels from directory structure
             image_size=(256, 256),
             batch_size=self.batch_size
         )
 
-        # Normalize images
-        horse_dataset = horse_dataset.map(lambda x, y: (x / 255.0, y))
-        zebra_dataset = zebra_dataset.map(lambda x, y: (x / 255.0, y))
+        # Normalize the images
+        horse_dataset = horse_dataset.map(lambda x: x / 255.0)
+        zebra_dataset = zebra_dataset.map(lambda x: x / 255.0)
 
-        # Concatenate datasets
-        combined_dataset = horse_dataset.concatenate(zebra_dataset)
+        # Create domain labels manually after loading
+        # Get number of batches to create labels for each batch
+        horse_batches = tf.data.experimental.cardinality(horse_dataset).numpy()
+        if horse_batches < 0:  # If cardinality is unknown
+            print("Warning: Horse dataset cardinality unknown, using estimate")
+            horse_batches = 100  # Use a reasonable estimate or count files manually
+
+        zebra_batches = tf.data.experimental.cardinality(zebra_dataset).numpy()
+        if zebra_batches < 0:  # If cardinality is unknown
+            print("Warning: Zebra dataset cardinality unknown, using estimate")
+            zebra_batches = 100  # Use a reasonable estimate or count files manually
+
+        # Create domain labels for each batch (0 for horse, 1 for zebra)
+        def add_horse_labels(images):
+            batch_size = tf.shape(images)[0]
+            return images, tf.zeros(batch_size, dtype=tf.int32)
+
+        def add_zebra_labels(images):
+            batch_size = tf.shape(images)[0]
+            return images, tf.ones(batch_size, dtype=tf.int32)
+
+        # Add domain labels to each batch
+        horse_with_labels = horse_dataset.map(add_horse_labels)
+        zebra_with_labels = zebra_dataset.map(add_zebra_labels)
+
+        # Concatenate the datasets
+        combined_dataset = horse_with_labels.concatenate(zebra_with_labels)
+
+        # Shuffle and prefetch
         return combined_dataset.shuffle(buffer_size=1000).prefetch(tf.data.AUTOTUNE)
