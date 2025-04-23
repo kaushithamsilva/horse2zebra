@@ -33,9 +33,9 @@ class DataLoader:
 
         # Create labels for the datasets: 0 for horse, 1 for zebra
         horse_labels = tf.data.Dataset.from_tensor_slices(
-            tf.zeros(horse_dataset.cardinality(), dtype=tf.float32))
+            tf.zeros(horse_dataset.cardinality(), dtype=tf.int32))
         zebra_labels = tf.data.Dataset.from_tensor_slices(
-            tf.ones(zebra_dataset.cardinality(), dtype=tf.float32))
+            tf.ones(zebra_dataset.cardinality(), dtype=tf.int32))
 
         # Combine datasets and labels
         horse_data = tf.data.Dataset.zip((horse_dataset, horse_labels))
