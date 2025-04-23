@@ -261,10 +261,11 @@ if __name__ == '__main__':
     # --- Model Initialization ---
     input_shape = (256, 256, 3)
     latent_dim = 256
+    hidden_dim = 256
 
     print(
         f"Initializing VAE with input_shape={input_shape}, latent_dim={latent_dim}...")
-    vae_model = VAE(input_shape, latent_dim)
+    vae_model = VAE(input_shape, latent_dim, hidden_dim)
 
     # Build the VAE model by calling it once (helps with saving/loading)
     # Use tf.data.Dataset.take(1) to get one batch, then next(iter(...))
