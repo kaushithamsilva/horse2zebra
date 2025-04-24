@@ -251,7 +251,7 @@ if __name__ == '__main__':
     print("Loading dataset...")
     # load combined dataset (ensure it yields (image, class_label, domain_label))
     data_loader = DataLoader(batch_size=32)  # Adjust batch size as needed
-    train_dataset = data_loader.get_training_data(split='train')
+    train_dataset = data_loader.get_training_data(split='train')['combined']
     print("Dataset loaded.")
 
     # --- Model Initialization ---
