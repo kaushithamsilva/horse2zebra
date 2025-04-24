@@ -30,7 +30,7 @@ def kl_weight(epoch):
     """
     KL weight function. Cyclical Annealing with Sigmoid (currently constant)
     """
-    return 0.01  # constant kl loss; short-circuit the annealing
+    return 0.0001  # constant kl loss; short-circuit the annealing
 
 
 @tf.function
@@ -127,7 +127,6 @@ def train_step_di(vae_model, domain_discriminator, x, d, optimizer, epoch, clip_
             domain_cycle_loss = tf.constant(0.0)
 
         # --- Total Loss ---
-        # Note: domain_cycle_loss is NOT included here based on previous findings
         total_loss = reconstruction_loss + kl_weight(epoch) * kl_loss + \
             domain_loss + \
             current_cycle_weight * \
@@ -260,8 +259,8 @@ if __name__ == '__main__':
 
     # --- Model Initialization ---
     input_shape = (256, 256, 3)
-    latent_dim = 256
-    hidden_dim = 256
+    latent_dim = 128
+    hidden_dim = 128
 
     print(
         f"Initializing VAE with input_shape={input_shape}, latent_dim={latent_dim}...")
@@ -285,8 +284,8 @@ if __name__ == '__main__':
 
     # --- Optimizer ---
     learning_rate = 1e-5  # Try an even lower learning rate
-    print(f"Using AdamW optimizer with learning_rate={learning_rate}")
-    optimizer = tf.keras.optimizers.AdamW(learning_rate=learning_rate)
+    print(f"Using Adam optimizer with learning_rate={learning_rate}")
+    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
     # --- Training ---
     epochs = 1000
