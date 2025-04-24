@@ -6,9 +6,6 @@ import model_utils
 from hyperplane import get_hyperplane
 
 
-from tensorflow.keras import mixed_precision
-mixed_precision.set_global_policy('mixed_float16')
-
 """
 Use the VAE models and train a Domain Informed - VAE (DI-VAE)
 """
