@@ -29,7 +29,7 @@ def cycle_weight(epoch):
 
 
 def kl_weight(epoch):
-    return 0.0001  # constant kl loss
+    return 0.00001  # constant kl loss
 
 
 @tf.function
@@ -244,8 +244,7 @@ def linear_discriminator(input_dim, num_classes):
 
 
 if __name__ == '__main__':
-    # Assuming these modules and functions exist and work correctly
-    from vae import VAE  # Assuming VAE class is defined correctly
+    from vae import VAE, Sampling
     from load_data import DataLoader
     import init_gpu
     init_gpu.initialize_gpus()  # Initialize GPU if available
@@ -261,9 +260,18 @@ if __name__ == '__main__':
     latent_dim = 128
     hidden_dim = 64
 
-    print(
-        f"Initializing VAE with input_shape={input_shape}, latent_dim={latent_dim}...")
-    vae_model = VAE(input_shape, latent_dim, hidden_dim)
+    # print(f"Initializing VAE with input_shape={input_shape}, latent_dim={latent_dim}...")
+    # vae_model = VAE(input_shape, latent_dim, hidden_dim)
+
+    # print(f"Initializing Domain Discriminator with latent_dim={latent_dim}...")
+    # domain_discriminator = linear_discriminator(
+    #     latent_dim, 2)  # 2 classes for domain
+
+    print(f"Loading trained models...")
+    vae_model = tf.keras.models.load_model(
+        f"{SAVE_PATH}/vae-e500.keras", compile=False, custom_objects={'Sampling': Sampling, 'VAE': VAE})
+    domain_discriminator = tf.keras.models.load_model(
+        f"{SAVE_PATH}/domain_discriminator-e500.keras", compile=False)
 
     # Build the VAE model by calling it once (helps with saving/loading)
     # Use tf.data.Dataset.take(1) to get one batch, then next(iter(...))
@@ -272,9 +280,6 @@ if __name__ == '__main__':
     _ = vae_model(sample_input)  # Build the model
     vae_model.summary()  # Print VAE summary
 
-    print(f"Initializing Domain Discriminator with latent_dim={latent_dim}...")
-    domain_discriminator = linear_discriminator(
-        latent_dim, 2)  # 2 classes for domain
     # Build the discriminator
     sample_latent = tf.random.normal(
         (sample_input.shape[0], latent_dim))  # Match batch size
