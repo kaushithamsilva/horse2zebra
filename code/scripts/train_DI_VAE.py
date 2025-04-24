@@ -29,7 +29,7 @@ def cycle_weight(epoch):
 
 
 def kl_weight(epoch):
-    return 0.00001  # constant kl loss
+    return 0.0001  # constant kl loss
 
 
 @tf.function
