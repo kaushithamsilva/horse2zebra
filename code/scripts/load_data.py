@@ -55,8 +55,9 @@ class DataLoader:
         horse_with_labels = horse_dataset.map(add_horse_labels)
         zebra_with_labels = zebra_dataset.map(add_zebra_labels)
 
-        # Concatenate the datasets
-        combined_dataset = horse_with_labels.concatenate(zebra_with_labels)
-
-        # Shuffle and prefetch
-        return combined_dataset.shuffle(buffer_size=1000).prefetch(tf.data.AUTOTUNE)
+        # Keep these separate for evaluation
+        return {
+            'horse': horse_with_labels,
+            'zebra': zebra_with_labels,
+            'combined': horse_with_labels.concatenate(zebra_with_labels).prefetch(tf.data.AUTOTUNE)
+        }

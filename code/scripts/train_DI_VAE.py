@@ -1,8 +1,10 @@
 import tensorflow as tf
 import numpy as np
 import model_utils
+
 # Assuming this function is defined elsewhere and returns normalized w, b
 from hyperplane import get_hyperplane
+
 
 """
 Use the VAE models and train a Domain Informed - VAE (DI-VAE)
@@ -27,10 +29,7 @@ def cycle_weight(epoch):
 
 
 def kl_weight(epoch):
-    """
-    KL weight function. Cyclical Annealing with Sigmoid (currently constant)
-    """
-    return 0.01  # constant kl loss; short-circuit the annealing
+    return 0.0001  # constant kl loss
 
 
 @tf.function
@@ -127,7 +126,6 @@ def train_step_di(vae_model, domain_discriminator, x, d, optimizer, epoch, clip_
             domain_cycle_loss = tf.constant(0.0)
 
         # --- Total Loss ---
-        # Note: domain_cycle_loss is NOT included here based on previous findings
         total_loss = reconstruction_loss + kl_weight(epoch) * kl_loss + \
             domain_loss + \
             current_cycle_weight * \
@@ -255,13 +253,13 @@ if __name__ == '__main__':
     print("Loading dataset...")
     # load combined dataset (ensure it yields (image, class_label, domain_label))
     data_loader = DataLoader(batch_size=32)  # Adjust batch size as needed
-    train_dataset = data_loader.get_training_data(split='train')
+    train_dataset = data_loader.get_training_data(split='train')['combined']
     print("Dataset loaded.")
 
     # --- Model Initialization ---
     input_shape = (256, 256, 3)
-    latent_dim = 256
-    hidden_dim = 256
+    latent_dim = 128
+    hidden_dim = 64
 
     print(
         f"Initializing VAE with input_shape={input_shape}, latent_dim={latent_dim}...")
@@ -285,8 +283,8 @@ if __name__ == '__main__':
 
     # --- Optimizer ---
     learning_rate = 1e-5  # Try an even lower learning rate
-    print(f"Using AdamW optimizer with learning_rate={learning_rate}")
-    optimizer = tf.keras.optimizers.AdamW(learning_rate=learning_rate)
+    print(f"Using Adam optimizer with learning_rate={learning_rate}")
+    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
     # --- Training ---
     epochs = 1000
