@@ -27,10 +27,7 @@ def cycle_weight(epoch):
 
 
 def kl_weight(epoch):
-    """
-    KL weight function. Cyclical Annealing with Sigmoid (currently constant)
-    """
-    return 0.0001  # constant kl loss; short-circuit the annealing
+    return 0.0001  # constant kl loss
 
 
 @tf.function
