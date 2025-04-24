@@ -11,13 +11,13 @@ import matplotlib.pyplot as plt
 from hyperplane import Hyperplane
 
 SAVE_PATH = '../models/di_vae/'
-CHECKPOINT_PATH = SAVE_PATH + 'checkpoints/'
+CHECKPOINT_PATH = SAVE_PATH + 'checkpoints'
 
 if __name__ == "__main__":
     init_gpu.initialize_gpus()
 
     # load models
-    epochs = 500
+    epochs = 450
     vae_model = tf.keras.models.load_model(
         f"{CHECKPOINT_PATH}/vae-e{epochs}.keras", compile=False, custom_objects={'Sampling': Sampling, 'VAE': VAE})
     domain_discriminator = tf.keras.models.load_model(
@@ -69,4 +69,4 @@ if __name__ == "__main__":
     plt.title("Synthesized Zebra Image")
     plt.imshow(synthesized.numpy().reshape(256, 256, 3))
 
-    plt.savefig("synthesized_zebra.png", bbox_inches='tight')
+    plt.savefig(f"synthesized_zebra-e{epochs}.png", bbox_inches='tight')
