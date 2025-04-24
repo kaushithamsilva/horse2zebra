@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from hyperplane import Hyperplane
 
-SAVE_PATH = '../models/di_vae/'
+SAVE_PATH = '../../models/di_vae/'
 CHECKPOINT_PATH = SAVE_PATH + 'checkpoints'
 
 if __name__ == "__main__":
@@ -24,7 +24,7 @@ if __name__ == "__main__":
         f"{CHECKPOINT_PATH}/domain_discriminator-e{epochs}.keras", compile=False)
 
     # load data
-    data_loader = DataLoader()
+    data_loader = DataLoader("../../dataset")
     dataset = data_loader.get_training_data()
     horse_dataset = dataset['horse']
     zebra_dataset = dataset['zebra']
