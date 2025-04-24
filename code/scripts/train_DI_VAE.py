@@ -1,8 +1,13 @@
 import tensorflow as tf
 import numpy as np
 import model_utils
+
 # Assuming this function is defined elsewhere and returns normalized w, b
 from hyperplane import get_hyperplane
+
+
+from tensorflow.keras import mixed_precision
+mixed_precision.set_global_policy('mixed_float16')
 
 """
 Use the VAE models and train a Domain Informed - VAE (DI-VAE)
@@ -257,7 +262,7 @@ if __name__ == '__main__':
     # --- Model Initialization ---
     input_shape = (256, 256, 3)
     latent_dim = 128
-    hidden_dim = 128
+    hidden_dim = 64
 
     print(
         f"Initializing VAE with input_shape={input_shape}, latent_dim={latent_dim}...")
