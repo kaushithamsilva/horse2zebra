@@ -25,7 +25,7 @@ def cycle_weight(epoch):
     """
     Cycle weight function. The weight is 0 for the first few epochs and then increases linearly to max_limit.
     """
-    return 0.01  # Keep cycle loss active for now
+    return 0.0  # deactivate cycle loss for now
 
 
 def kl_weight(epoch):
@@ -260,18 +260,19 @@ if __name__ == '__main__':
     latent_dim = 128
     hidden_dim = 64
 
-    # print(f"Initializing VAE with input_shape={input_shape}, latent_dim={latent_dim}...")
-    # vae_model = VAE(input_shape, latent_dim, hidden_dim)
+    print(
+        f"Initializing VAE with input_shape={input_shape}, latent_dim={latent_dim}...")
+    vae_model = VAE(input_shape, latent_dim, hidden_dim)
 
-    # print(f"Initializing Domain Discriminator with latent_dim={latent_dim}...")
-    # domain_discriminator = linear_discriminator(
-    #     latent_dim, 2)  # 2 classes for domain
+    print(f"Initializing Domain Discriminator with latent_dim={latent_dim}...")
+    domain_discriminator = linear_discriminator(
+        latent_dim, 2)  # 2 classes for domain
 
-    print(f"Loading trained models...")
-    vae_model = tf.keras.models.load_model(
-        f"{SAVE_PATH}/vae-e500.keras", compile=False, custom_objects={'Sampling': Sampling, 'VAE': VAE})
-    domain_discriminator = tf.keras.models.load_model(
-        f"{SAVE_PATH}/domain_discriminator-e500.keras", compile=False)
+    # print(f"Loading trained models...")
+    # vae_model = tf.keras.models.load_model(
+    #     f"{SAVE_PATH}/vae-e500.keras", compile=False, custom_objects={'Sampling': Sampling, 'VAE': VAE})
+    # domain_discriminator = tf.keras.models.load_model(
+    #     f"{SAVE_PATH}/domain_discriminator-e500.keras", compile=False)
 
     # Build the VAE model by calling it once (helps with saving/loading)
     # Use tf.data.Dataset.take(1) to get one batch, then next(iter(...))
