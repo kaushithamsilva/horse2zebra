@@ -13,7 +13,7 @@ from vae import VAE, Sampling
 # === Configuration: set these paths and parameters manually ===
 DATA_PATH = "../../dataset/"                 # Path to the root dataset folder
 BATCH_SIZE = 32                                # Batch size for evaluation
-SAVE_PATH = '../models/di_vae'
+SAVE_PATH = '../../models/di_vae'
 CHECKPOINT_PATH = SAVE_PATH + '/checkpoints'
 # Path to linear_discriminator weights (e.g. .ckpt)
 CLASSIFIER_WEIGHTS_PATH = "path/to/cls_weights"
