@@ -14,6 +14,10 @@ CHECKPOINT_PATH = SAVE_PATH+'checkpoints/'
 EPOCH_CHECKPOINT = 50
 
 
+# Load previous epoch for resuming training, set to 0 if starting fresh
+PREVIOUS_EPOCH = 1000
+
+
 def classification_loss(labels, predictions):
     # Add numerical stability check for predictions
     tf.debugging.check_numerics(
@@ -226,11 +230,11 @@ def train_di_vae(vae_model, domain_discriminator, train_dataset, optimizer, epoc
 
         # Save checkpoints
         if (epoch + 1) % EPOCH_CHECKPOINT == 0 or epoch == epochs - 1:
-            print(f"Saving checkpoint at epoch {epoch+1}...")
+            print(f"Saving checkpoint at epoch {epoch+1+PREVIOUS_EPOCH}...")
             model_utils.save_model(
-                vae_model, CHECKPOINT_PATH, f'vae-e{epoch+1}')
+                vae_model, CHECKPOINT_PATH, f'vae-e{epoch+1+PREVIOUS_EPOCH}')
             model_utils.save_model(
-                domain_discriminator, CHECKPOINT_PATH, f'domain_discriminator-e{epoch+1}')
+                domain_discriminator, CHECKPOINT_PATH, f'domain_discriminator-e{epoch+1+PREVIOUS_EPOCH}')
             print("Checkpoint saved.")
 
 
@@ -260,19 +264,21 @@ if __name__ == '__main__':
     latent_dim = 128
     hidden_dim = 64
 
-    print(
-        f"Initializing VAE with input_shape={input_shape}, latent_dim={latent_dim}...")
-    vae_model = VAE(input_shape, latent_dim, hidden_dim)
+    if PREVIOUS_EPOCH == 0:
+        print(
+            f"Initializing VAE with input_shape={input_shape}, latent_dim={latent_dim}...")
+        vae_model = VAE(input_shape, latent_dim, hidden_dim)
 
-    print(f"Initializing Domain Discriminator with latent_dim={latent_dim}...")
-    domain_discriminator = linear_discriminator(
-        latent_dim, 2)  # 2 classes for domain
-
-    # print(f"Loading trained models...")
-    # vae_model = tf.keras.models.load_model(
-    #     f"{SAVE_PATH}/vae-e500.keras", compile=False, custom_objects={'Sampling': Sampling, 'VAE': VAE})
-    # domain_discriminator = tf.keras.models.load_model(
-    #     f"{SAVE_PATH}/domain_discriminator-e500.keras", compile=False)
+        print(
+            f"Initializing Domain Discriminator with latent_dim={latent_dim}...")
+        domain_discriminator = linear_discriminator(
+            latent_dim, 2)  # 2 classes for domain
+    else:
+        print(f"Loading trained models...")
+        vae_model = tf.keras.models.load_model(
+            f"{SAVE_PATH}/vae-{PREVIOUS_EPOCH}.keras", compile=False, custom_objects={'Sampling': Sampling, 'VAE': VAE})
+        domain_discriminator = tf.keras.models.load_model(
+            f"{SAVE_PATH}/domain_discriminator-e{PREVIOUS_EPOCH}.keras", compile=False)
 
     # Build the VAE model by calling it once (helps with saving/loading)
     # Use tf.data.Dataset.take(1) to get one batch, then next(iter(...))
@@ -293,7 +299,7 @@ if __name__ == '__main__':
     optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
     # --- Training ---
-    epochs = 1000
+    epochs = 2000
     print(f"Starting training for {epochs} epochs...")
     train_di_vae(vae_model, domain_discriminator,
                  train_dataset, optimizer, epochs=epochs)
@@ -301,7 +307,8 @@ if __name__ == '__main__':
 
     # --- Final Model Saving ---
     print("Saving final models...")
-    model_utils.save_model(vae_model, SAVE_PATH, f'vae-e{epochs}')
+    model_utils.save_model(vae_model, SAVE_PATH,
+                           f'vae-e{epochs+PREVIOUS_EPOCH}')
     model_utils.save_model(domain_discriminator, SAVE_PATH,
-                           f'domain_discriminator-e{epochs}')
+                           f'domain_discriminator-e{epochs+PREVIOUS_EPOCH}')
     print("Final models saved.")
