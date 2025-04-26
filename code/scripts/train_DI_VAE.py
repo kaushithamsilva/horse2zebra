@@ -25,6 +25,78 @@ def classification_loss(labels, predictions):
     return tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)(labels, predictions)
 
 
+def _pairwise_distances(x, y):
+    """
+    Compute the squared Euclidean distance between each pair of vectors in x and y.
+    x: Tensor of shape [m, d]
+    y: Tensor of shape [n, d]
+    Returns: Tensor of shape [m, n]
+    """
+    x_norm = tf.reduce_sum(tf.square(x), axis=1, keepdims=True)  # [m, 1]
+    y_norm = tf.reduce_sum(tf.square(y), axis=1, keepdims=True)  # [n, 1]
+    dist = x_norm - 2.0 * \
+        tf.matmul(x, y, transpose_b=True) + tf.transpose(y_norm)
+    return dist
+
+
+def gaussian_kernel_matrix(x, y, sigmas):
+    """
+    Compute a Gaussian (RBF) kernel matrix between x and y using multiple bandwidths.
+    x: Tensor of shape [m, d]
+    y: Tensor of shape [n, d]
+    sigmas: list or tensor of bandwidth values
+    Returns: Tensor of shape [m, n]
+    """
+    dist = _pairwise_distances(x, y)
+    kernels = [tf.exp(-dist / (2.0 * sigma**2)) for sigma in sigmas]
+    return tf.add_n(kernels)
+
+
+def compute_mmd(x, y, sigmas=[1.0, 2.0, 4.0, 8.0]):
+    """
+    Compute the Maximum Mean Discrepancy (MMD) between two sets of samples x and y.
+    x: Tensor of shape [batch, dim]
+    y: Tensor of shape [batch, dim]
+    sigmas: list of RBF kernel bandwidths
+    Returns: scalar MMD loss
+    """
+    # Kernel evaluations
+    K_xx = gaussian_kernel_matrix(x, x, sigmas)
+    K_yy = gaussian_kernel_matrix(y, y, sigmas)
+    K_xy = gaussian_kernel_matrix(x, y, sigmas)
+
+    # MMD formula
+    mmd = tf.reduce_mean(K_xx) + tf.reduce_mean(K_yy) - \
+        2.0 * tf.reduce_mean(K_xy)
+    return mmd
+
+
+# split by domain label d (shape [B], values 0=horse,1=zebra)
+def mmd_loss(z, z_mirror, d):
+    mask_horse = tf.equal(d, 0)
+    mask_zebra = tf.equal(d, 1)
+
+    z_horse = tf.boolean_mask(z,       mask_horse)   # real horses
+    z_zebra = tf.boolean_mask(z,       mask_zebra)   # real zebras
+    z_horse_mirr = tf.boolean_mask(z_mirror, mask_horse)   # horse→mirror
+    z_zebra_mirr = tf.boolean_mask(z_mirror, mask_zebra)   # zebra→mirror
+
+    mmd_loss = 0.0
+
+    # If there are any horses in batch, match horse→zebra mirror to real zebras
+    if tf.shape(z_horse_mirr)[0] > 0 and tf.shape(z_zebra)[0] > 0:
+        mmd_loss += compute_mmd(z_zebra, z_horse_mirr)
+
+    # If there are any zebras in batch, match zebra→horse mirror to real horses
+    if tf.shape(z_zebra_mirr)[0] > 0 and tf.shape(z_horse)[0] > 0:
+        mmd_loss += compute_mmd(z_horse, z_zebra_mirr)
+
+    # average over the two directions (optional)
+    mmd_loss = mmd_loss * 0.5
+
+    return mmd_loss
+
+
 def cycle_weight(epoch):
     """
     Cycle weight function. The weight is 0 for the first few epochs and then increases linearly to max_limit.
@@ -123,17 +195,22 @@ def train_step_di(vae_model, domain_discriminator, x, d, optimizer, epoch, clip_
             tf.debugging.check_numerics(
                 reconstruction_cycle_loss, "Reconstruction Cycle Loss has NaN/Inf")
 
+            # MMD loss
+            mmd_loss = mmd_loss(z, z_mirror, d)
+            tf.debugging.check_numerics(mmd_loss, "MMD Loss has NaN/Inf")
+
         else:  # If cycle weight is zero, set cycle losses to zero
             latent_cycle_loss = tf.constant(0.0)
             reconstruction_cycle_loss = tf.constant(0.0)
             # Still calculate for metrics dict consistency
             domain_cycle_loss = tf.constant(0.0)
+            mmd_loss = tf.constant(0.0)
 
         # --- Total Loss ---
         total_loss = reconstruction_loss + kl_weight(epoch) * kl_loss + \
             domain_loss + \
             current_cycle_weight * \
-            (latent_cycle_loss + 0.1 * reconstruction_cycle_loss)
+            (latent_cycle_loss + 0.1 * reconstruction_cycle_loss) + mmd_loss
         tf.debugging.check_numerics(
             total_loss, "Total Loss has NaN/Inf BEFORE gradient calculation")
 
@@ -172,6 +249,7 @@ def train_step_di(vae_model, domain_discriminator, x, d, optimizer, epoch, clip_
         "domain_loss_cycle": domain_cycle_loss,  # Metric only
         "reconstruction_cycle_loss": reconstruction_cycle_loss,
         "latent_cycle_loss": latent_cycle_loss,
+        "mmd_loss": mmd_loss,
         "grad_global_norm": global_norm  # Add gradient norm to metrics
     }
 
@@ -182,7 +260,7 @@ def train_di_vae(vae_model, domain_discriminator, train_dataset, optimizer, epoc
         # Create metrics for each loss from the train_step, including grad norm
         metric_keys = ["total_loss", "reconstruction_loss", "kl_loss", "domain_loss",
                        "domain_loss_cycle", "reconstruction_cycle_loss", "latent_cycle_loss",
-                       "grad_global_norm"]
+                       "mmd_loss",  "grad_global_norm"]
         epoch_losses = {loss: tf.keras.metrics.Mean() for loss in metric_keys}
 
         for step, (x, d) in enumerate(train_dataset):
@@ -210,7 +288,7 @@ def train_di_vae(vae_model, domain_discriminator, train_dataset, optimizer, epoc
                 print(f"Error message: {e}")
                 # Optionally: Save models, print more info, or stop training
                 # Example: Print shapes
-                print(f"Input shapes: x={x.shape}, y={y.shape}, d={d.shape}")
+                print(f"Input shapes: x={x.shape}, d={d.shape}")
                 # Trying to save model state before exiting might be useful
                 print("Attempting to save models before exiting...")
                 model_utils.save_model(
@@ -279,18 +357,6 @@ if __name__ == '__main__':
             f"{CHECKPOINT_PATH}/vae-e{PREVIOUS_EPOCH}.keras", compile=False, custom_objects={'Sampling': Sampling, 'VAE': VAE})
         domain_discriminator = tf.keras.models.load_model(
             f"{CHECKPOINT_PATH}/domain_discriminator-e{PREVIOUS_EPOCH}.keras", compile=False)
-
-    # This part is after the di-vae has learnt good latent representations and reconstructions.
-    # freeze the domain_discriminator
-    print("Freezing domain discriminator...")
-    domain_discriminator.trainable = False
-
-    # freexe the encoder part of the VAE
-    print("Freezing VAE encoder...")
-    for layer in vae_model.encoder.layers:
-        layer.trainable = False
-
-    print("Only the decoder part of the VAE is trainable.")
 
     # Build the VAE model by calling it once (helps with saving/loading)
     # Use tf.data.Dataset.take(1) to get one batch, then next(iter(...))
