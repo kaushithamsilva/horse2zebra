@@ -72,7 +72,7 @@ def compute_mmd(x, y, sigmas=[1.0, 2.0, 4.0, 8.0]):
 
 
 # split by domain label d (shape [B], values 0=horse,1=zebra)
-def mmd_loss(z, z_mirror, d):
+def get_mmd_loss(z, z_mirror, d):
     mask_horse = tf.equal(d, 0)
     mask_zebra = tf.equal(d, 1)
 
@@ -196,7 +196,7 @@ def train_step_di(vae_model, domain_discriminator, x, d, optimizer, epoch, clip_
                 reconstruction_cycle_loss, "Reconstruction Cycle Loss has NaN/Inf")
 
             # MMD loss
-            mmd_loss = mmd_loss(z, z_mirror, d)
+            mmd_loss = get_mmd_loss(z, z_mirror, d)
             tf.debugging.check_numerics(mmd_loss, "MMD Loss has NaN/Inf")
 
         else:  # If cycle weight is zero, set cycle losses to zero
