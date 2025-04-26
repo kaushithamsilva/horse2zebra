@@ -15,7 +15,7 @@ EPOCH_CHECKPOINT = 50
 
 
 # Load previous epoch for resuming training, set to 0 if starting fresh
-PREVIOUS_EPOCH = 1000
+PREVIOUS_EPOCH = 5000
 
 
 def classification_loss(labels, predictions):
@@ -29,7 +29,7 @@ def cycle_weight(epoch):
     """
     Cycle weight function. The weight is 0 for the first few epochs and then increases linearly to max_limit.
     """
-    return 0.0  # deactivate cycle loss for now
+    return 0.01  # deactivate cycle loss for now
 
 
 def kl_weight(epoch):
@@ -279,6 +279,10 @@ if __name__ == '__main__':
             f"{SAVE_PATH}/vae-e{PREVIOUS_EPOCH}.keras", compile=False, custom_objects={'Sampling': Sampling, 'VAE': VAE})
         domain_discriminator = tf.keras.models.load_model(
             f"{SAVE_PATH}/domain_discriminator-e{PREVIOUS_EPOCH}.keras", compile=False)
+
+    # freeze the domain_discriminator
+    print("Freezing domain discriminator...")
+    domain_discriminator.trainable = False
 
     # Build the VAE model by calling it once (helps with saving/loading)
     # Use tf.data.Dataset.take(1) to get one batch, then next(iter(...))
