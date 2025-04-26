@@ -280,9 +280,17 @@ if __name__ == '__main__':
         domain_discriminator = tf.keras.models.load_model(
             f"{CHECKPOINT_PATH}/domain_discriminator-e{PREVIOUS_EPOCH}.keras", compile=False)
 
+    # This part is after the di-vae has learnt good latent representations and reconstructions.
     # freeze the domain_discriminator
     print("Freezing domain discriminator...")
     domain_discriminator.trainable = False
+
+    # freexe the encoder part of the VAE
+    print("Freezing VAE encoder...")
+    for layer in vae_model.encoder.layers:
+        layer.trainable = False
+
+    print("Only the decoder part of the VAE is trainable.")
 
     # Build the VAE model by calling it once (helps with saving/loading)
     # Use tf.data.Dataset.take(1) to get one batch, then next(iter(...))
