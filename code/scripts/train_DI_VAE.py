@@ -173,7 +173,8 @@ def train_step_di(vae_model, domain_discriminator, x, d, optimizer, epoch, clip_
         total_loss = reconstruction_loss + kl_weight(epoch) * kl_loss + \
             domain_loss + \
             current_cycle_weight * \
-            (latent_cycle_loss + 0.1 * reconstruction_cycle_loss) + mean_matching_loss
+            (latent_cycle_loss + 0.1 * reconstruction_cycle_loss +
+             domain_cycle_loss) + mean_matching_loss
         tf.debugging.check_numerics(
             total_loss, "Total Loss has NaN/Inf BEFORE gradient calculation")
 
