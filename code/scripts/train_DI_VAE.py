@@ -54,7 +54,7 @@ def get_mean_matching_loss(z_real, z_mirror, domain_labels):
         num_losses += 1
 
     if num_losses > 0:
-        loss /= num_losses
+        loss /= tf.cast(num_losses, tf.float32)
 
     return loss
 
