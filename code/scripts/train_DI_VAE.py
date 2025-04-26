@@ -276,9 +276,9 @@ if __name__ == '__main__':
     else:
         print(f"Loading trained models...")
         vae_model = tf.keras.models.load_model(
-            f"{SAVE_PATH}/vae-e{PREVIOUS_EPOCH}.keras", compile=False, custom_objects={'Sampling': Sampling, 'VAE': VAE})
+            f"{CHECKPOINT_PATH}/vae-e{PREVIOUS_EPOCH}.keras", compile=False, custom_objects={'Sampling': Sampling, 'VAE': VAE})
         domain_discriminator = tf.keras.models.load_model(
-            f"{SAVE_PATH}/domain_discriminator-e{PREVIOUS_EPOCH}.keras", compile=False)
+            f"{CHECKPOINT_PATH}/domain_discriminator-e{PREVIOUS_EPOCH}.keras", compile=False)
 
     # freeze the domain_discriminator
     print("Freezing domain discriminator...")
