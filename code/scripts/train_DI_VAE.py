@@ -27,34 +27,41 @@ def classification_loss(labels, predictions):
 
 def get_mean_matching_loss(z_real, z_mirror, domain_labels):
     """
-    z_real: Tensor of shape (batch_size, latent_dim)
-    z_mirror: Tensor of shape (batch_size, latent_dim)
-    domain_labels: Tensor of shape (batch_size,), with 0 (horse) or 1 (zebra)
+    z_real:       (B, D) original latents
+    z_mirror:     (B, D) reflected latents
+    domain_labels:(B,) values 0=horse,1=zebra
     """
-    # Select horses (domain=0) and zebras (domain=1)
-    horses = tf.boolean_mask(z_real, domain_labels == 0)
-    zebras = tf.boolean_mask(z_real, domain_labels == 1)
+    # Masks
+    is_horse = tf.equal(domain_labels, 0)
+    is_zebra = tf.equal(domain_labels, 1)
 
-    mirror_for_horses = tf.boolean_mask(z_mirror, domain_labels == 0)
-    mirror_for_zebras = tf.boolean_mask(z_mirror, domain_labels == 1)
+    # Real sets
+    z_horse = tf.boolean_mask(z_real, is_horse)   # real horses
+    z_zebra = tf.boolean_mask(z_real, is_zebra)   # real zebras
+
+    # Mirror sets
+    zm_horse = tf.boolean_mask(z_mirror, is_horse)  # horse→mirror
+    zm_zebra = tf.boolean_mask(z_mirror, is_zebra)  # zebra→mirror
 
     loss = 0.0
-    num_losses = 0
+    count = 0
 
-    if tf.shape(horses)[0] > 0 and tf.shape(mirror_for_horses)[0] > 0:
-        mean_horses = tf.reduce_mean(horses, axis=0)
-        mean_mirror_zebras = tf.reduce_mean(mirror_for_horses, axis=0)
-        loss += tf.reduce_mean(tf.square(mean_horses - mean_mirror_zebras))
-        num_losses += 1
+    # Horse→Mirror should match real zebras
+    if tf.shape(zm_horse)[0] > 0 and tf.shape(z_zebra)[0] > 0:
+        mean_real_zebra = tf.reduce_mean(z_zebra, axis=0)
+        mean_mirror_horse = tf.reduce_mean(zm_horse, axis=0)
+        loss += tf.reduce_mean(tf.square(mean_real_zebra - mean_mirror_horse))
+        count += 1
 
-    if tf.shape(zebras)[0] > 0 and tf.shape(mirror_for_zebras)[0] > 0:
-        mean_zebras = tf.reduce_mean(zebras, axis=0)
-        mean_mirror_horses = tf.reduce_mean(mirror_for_zebras, axis=0)
-        loss += tf.reduce_mean(tf.square(mean_zebras - mean_mirror_horses))
-        num_losses += 1
+    # Zebra→Mirror should match real horses
+    if tf.shape(zm_zebra)[0] > 0 and tf.shape(z_horse)[0] > 0:
+        mean_real_horse = tf.reduce_mean(z_horse, axis=0)
+        mean_mirror_zebra = tf.reduce_mean(zm_zebra, axis=0)
+        loss += tf.reduce_mean(tf.square(mean_real_horse - mean_mirror_zebra))
+        count += 1
 
-    if num_losses > 0:
-        loss /= tf.cast(num_losses, tf.float32)
+    if count > 0:
+        loss /= tf.cast(count, tf.float32)
 
     return loss
 
@@ -173,8 +180,7 @@ def train_step_di(vae_model, domain_discriminator, x, d, optimizer, epoch, clip_
         total_loss = reconstruction_loss + kl_weight(epoch) * kl_loss + \
             domain_loss + \
             current_cycle_weight * \
-            (latent_cycle_loss + 0.1 * reconstruction_cycle_loss +
-             domain_cycle_loss) + mean_matching_loss
+            (latent_cycle_loss + 0.1 * reconstruction_cycle_loss) + mean_matching_loss
         tf.debugging.check_numerics(
             total_loss, "Total Loss has NaN/Inf BEFORE gradient calculation")
 
