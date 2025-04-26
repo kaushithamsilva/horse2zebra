@@ -25,76 +25,38 @@ def classification_loss(labels, predictions):
     return tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)(labels, predictions)
 
 
-def _pairwise_distances(x, y):
+def get_mean_matching_loss(z_real, z_mirror, domain_labels):
     """
-    Compute the squared Euclidean distance between each pair of vectors in x and y.
-    x: Tensor of shape [m, d]
-    y: Tensor of shape [n, d]
-    Returns: Tensor of shape [m, n]
+    z_real: Tensor of shape (batch_size, latent_dim)
+    z_mirror: Tensor of shape (batch_size, latent_dim)
+    domain_labels: Tensor of shape (batch_size,), with 0 (horse) or 1 (zebra)
     """
-    x_norm = tf.reduce_sum(tf.square(x), axis=1, keepdims=True)  # [m, 1]
-    y_norm = tf.reduce_sum(tf.square(y), axis=1, keepdims=True)  # [n, 1]
-    dist = x_norm - 2.0 * \
-        tf.matmul(x, y, transpose_b=True) + tf.transpose(y_norm)
-    return dist
+    # Select horses (domain=0) and zebras (domain=1)
+    horses = tf.boolean_mask(z_real, domain_labels == 0)
+    zebras = tf.boolean_mask(z_real, domain_labels == 1)
 
+    mirror_for_horses = tf.boolean_mask(z_mirror, domain_labels == 0)
+    mirror_for_zebras = tf.boolean_mask(z_mirror, domain_labels == 1)
 
-def gaussian_kernel_matrix(x, y, sigmas):
-    """
-    Compute a Gaussian (RBF) kernel matrix between x and y using multiple bandwidths.
-    x: Tensor of shape [m, d]
-    y: Tensor of shape [n, d]
-    sigmas: list or tensor of bandwidth values
-    Returns: Tensor of shape [m, n]
-    """
-    dist = _pairwise_distances(x, y)
-    kernels = [tf.exp(-dist / (2.0 * sigma**2)) for sigma in sigmas]
-    return tf.add_n(kernels)
+    loss = 0.0
+    num_losses = 0
 
+    if tf.shape(horses)[0] > 0 and tf.shape(mirror_for_horses)[0] > 0:
+        mean_horses = tf.reduce_mean(horses, axis=0)
+        mean_mirror_zebras = tf.reduce_mean(mirror_for_horses, axis=0)
+        loss += tf.reduce_mean(tf.square(mean_horses - mean_mirror_zebras))
+        num_losses += 1
 
-def compute_mmd(x, y, sigmas=[1.0, 2.0, 4.0, 8.0]):
-    """
-    Compute the Maximum Mean Discrepancy (MMD) between two sets of samples x and y.
-    x: Tensor of shape [batch, dim]
-    y: Tensor of shape [batch, dim]
-    sigmas: list of RBF kernel bandwidths
-    Returns: scalar MMD loss
-    """
-    # Kernel evaluations
-    K_xx = gaussian_kernel_matrix(x, x, sigmas)
-    K_yy = gaussian_kernel_matrix(y, y, sigmas)
-    K_xy = gaussian_kernel_matrix(x, y, sigmas)
+    if tf.shape(zebras)[0] > 0 and tf.shape(mirror_for_zebras)[0] > 0:
+        mean_zebras = tf.reduce_mean(zebras, axis=0)
+        mean_mirror_horses = tf.reduce_mean(mirror_for_zebras, axis=0)
+        loss += tf.reduce_mean(tf.square(mean_zebras - mean_mirror_horses))
+        num_losses += 1
 
-    # MMD formula
-    mmd = tf.reduce_mean(K_xx) + tf.reduce_mean(K_yy) - \
-        2.0 * tf.reduce_mean(K_xy)
-    return mmd
+    if num_losses > 0:
+        loss /= num_losses
 
-
-# split by domain label d (shape [B], values 0=horse,1=zebra)
-def get_mmd_loss(z, z_mirror, d):
-    mask_horse = tf.equal(d, 0)
-    mask_zebra = tf.equal(d, 1)
-
-    z_horse = tf.boolean_mask(z,       mask_horse)   # real horses
-    z_zebra = tf.boolean_mask(z,       mask_zebra)   # real zebras
-    z_horse_mirr = tf.boolean_mask(z_mirror, mask_horse)   # horse→mirror
-    z_zebra_mirr = tf.boolean_mask(z_mirror, mask_zebra)   # zebra→mirror
-
-    mmd_loss = 0.0
-
-    # If there are any horses in batch, match horse→zebra mirror to real zebras
-    if tf.shape(z_horse_mirr)[0] > 0 and tf.shape(z_zebra)[0] > 0:
-        mmd_loss += compute_mmd(z_zebra, z_horse_mirr)
-
-    # If there are any zebras in batch, match zebra→horse mirror to real horses
-    if tf.shape(z_zebra_mirr)[0] > 0 and tf.shape(z_horse)[0] > 0:
-        mmd_loss += compute_mmd(z_horse, z_zebra_mirr)
-
-    # average over the two directions (optional)
-    mmd_loss = mmd_loss * 0.5
-
-    return mmd_loss
+    return loss
 
 
 def cycle_weight(epoch):
@@ -156,6 +118,11 @@ def train_step_di(vae_model, domain_discriminator, x, d, optimizer, epoch, clip_
             z_mirror = z - 2 * tf.expand_dims(distance, axis=-1) * w
             tf.debugging.check_numerics(z_mirror, "z_mirror has NaN/Inf")
 
+            # mean matching loss
+            mean_matching_loss = get_mean_matching_loss(z, z_mirror, d)
+            tf.debugging.check_numerics(
+                mean_matching_loss, "MMD Loss has NaN/Inf")
+
             # Decode mirrored z
             reconstructed_mirror = vae_model.decode(z_mirror)
             tf.debugging.check_numerics(
@@ -195,22 +162,18 @@ def train_step_di(vae_model, domain_discriminator, x, d, optimizer, epoch, clip_
             tf.debugging.check_numerics(
                 reconstruction_cycle_loss, "Reconstruction Cycle Loss has NaN/Inf")
 
-            # MMD loss
-            mmd_loss = get_mmd_loss(z, z_mirror, d)
-            tf.debugging.check_numerics(mmd_loss, "MMD Loss has NaN/Inf")
-
         else:  # If cycle weight is zero, set cycle losses to zero
             latent_cycle_loss = tf.constant(0.0)
             reconstruction_cycle_loss = tf.constant(0.0)
             # Still calculate for metrics dict consistency
             domain_cycle_loss = tf.constant(0.0)
-            mmd_loss = tf.constant(0.0)
+            mean_matching_loss = tf.constant(0.0)
 
         # --- Total Loss ---
         total_loss = reconstruction_loss + kl_weight(epoch) * kl_loss + \
             domain_loss + \
             current_cycle_weight * \
-            (latent_cycle_loss + 0.1 * reconstruction_cycle_loss) + mmd_loss
+            (latent_cycle_loss + 0.1 * reconstruction_cycle_loss) + mean_matching_loss
         tf.debugging.check_numerics(
             total_loss, "Total Loss has NaN/Inf BEFORE gradient calculation")
 
@@ -249,7 +212,7 @@ def train_step_di(vae_model, domain_discriminator, x, d, optimizer, epoch, clip_
         "domain_loss_cycle": domain_cycle_loss,  # Metric only
         "reconstruction_cycle_loss": reconstruction_cycle_loss,
         "latent_cycle_loss": latent_cycle_loss,
-        "mmd_loss": mmd_loss,
+        "mean_matching_loss": mean_matching_loss,
         "grad_global_norm": global_norm  # Add gradient norm to metrics
     }
 
@@ -260,7 +223,7 @@ def train_di_vae(vae_model, domain_discriminator, train_dataset, optimizer, epoc
         # Create metrics for each loss from the train_step, including grad norm
         metric_keys = ["total_loss", "reconstruction_loss", "kl_loss", "domain_loss",
                        "domain_loss_cycle", "reconstruction_cycle_loss", "latent_cycle_loss",
-                       "mmd_loss",  "grad_global_norm"]
+                       "mean_matching_loss",  "grad_global_norm"]
         epoch_losses = {loss: tf.keras.metrics.Mean() for loss in metric_keys}
 
         for step, (x, d) in enumerate(train_dataset):
