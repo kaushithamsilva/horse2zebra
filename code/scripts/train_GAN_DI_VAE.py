@@ -15,7 +15,7 @@ EPOCH_CHECKPOINT = 50
 
 
 # Load previous epoch for resuming training, set to 0 if starting fresh
-PREVIOUS_EPOCH = 5000
+PREVIOUS_EPOCH = 0
 
 
 # Losses
