@@ -311,9 +311,9 @@ def train_di_vae(vae_model, domain_discriminator, horse_gan_disc, zebra_gan_disc
                 domain_discriminator, CHECKPOINT_PATH, f'domain_discriminator-e{epoch+1+PREVIOUS_EPOCH}')
             print("Checkpoint saved.")
             model_utils.save_model(
-                horse_gan_disc, CHECKPOINT_PATH, f'horse_disc-e{epoch+1}')
+                horse_gan_disc, CHECKPOINT_PATH, f'horse_disc-e{epoch+1+PREVIOUS_EPOCH}')
             model_utils.save_model(
-                zebra_gan_disc, CHECKPOINT_PATH, f'zebra_disc-e{epoch+1}')
+                zebra_gan_disc, CHECKPOINT_PATH, f'zebra_disc-e{epoch+1+PREVIOUS_EPOCH}')
 
 
 def linear_discriminator(input_dim, num_classes):
