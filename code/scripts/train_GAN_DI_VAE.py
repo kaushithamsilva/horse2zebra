@@ -9,7 +9,7 @@ from hyperplane import get_hyperplane
 """
 Use the VAE models and train a Domain Informed - VAE (DI-VAE)
 """
-SAVE_PATH = '../../models/di_vae/'
+SAVE_PATH = '../../models/gan_di_vae/'
 CHECKPOINT_PATH = SAVE_PATH+'checkpoints/'
 EPOCH_CHECKPOINT = 50
 
