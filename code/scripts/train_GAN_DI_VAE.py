@@ -371,15 +371,15 @@ if __name__ == '__main__':
     _ = domain_discriminator(sample_latent)
     domain_discriminator.summary()  # Print discriminator summary
 
+    # gan discriminators
+    horse_gan_disc = build_img_discriminator(input_shape)
+    zebra_gan_disc = build_img_discriminator(input_shape)
+
     # --- Optimizer ---
     learning_rate = 1e-5  # Try an even lower learning rate
     print(f"Using Adam optimizer with learning_rate={learning_rate}")
     vae_opt = tf.keras.optimizers.Adam(learning_rate=learning_rate)
     gan_opt = tf.keras.optimizers.Adam(learning_rate=learning_rate)
-
-    # gan discriminators
-    horse_gan_disc = build_img_discriminator(input_shape)
-    zebra_gan_disc = build_img_discriminator(input_shape)
 
     # --- Training ---
     epochs = 2000
