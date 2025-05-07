@@ -57,7 +57,7 @@ def kl_weight(epoch):
 
 
 @tf.function
-def train_step_di(vae_model, domain_discriminator, horse_gan_disc, zebra_gan_disc, x, d, vae_opt, gan_opt, epoch, clip_norm=1.0):
+def train_step_di(vae_model, domain_discriminator, horse_gan_disc, zebra_gan_disc, x, d, vae_opt, horse_opt, zebra_opt, epoch, clip_norm=1.0):
     """
     Train step for DI-VAE with numerical checks and gradient clipping.
     Note: Renamed from train_step_ci_di to train_step_di for clarity.
@@ -227,11 +227,11 @@ def train_step_di(vae_model, domain_discriminator, horse_gan_disc, zebra_gan_dis
     # Update image discriminators
     if L_d_horse > 0:
         grads_h = tape.gradient(L_d_horse, horse_gan_disc.trainable_variables)
-        gan_opt.apply_gradients(
+        horse_opt.apply_gradients(
             zip(grads_h, horse_gan_disc.trainable_variables))
     if L_d_zebra > 0:
         grads_z = tape.gradient(L_d_zebra, zebra_gan_disc.trainable_variables)
-        gan_opt.apply_gradients(
+        zebra_opt.apply_gradients(
             zip(grads_z, zebra_gan_disc.trainable_variables))
 
     del tape  # Free up memory
@@ -250,7 +250,7 @@ def train_step_di(vae_model, domain_discriminator, horse_gan_disc, zebra_gan_dis
     }
 
 
-def train_di_vae(vae_model, domain_discriminator, horse_gan_disc, zebra_gan_disc, train_dataset, vae_opt, gan_opt, epochs):
+def train_di_vae(vae_model, domain_discriminator, horse_gan_disc, zebra_gan_disc, train_dataset, vae_opt, horse_opt, zebra_opt, epochs):
     """ Main training loop. """
     for epoch in range(epochs):
         # Create metrics for each loss from the train_step, including grad norm
@@ -266,7 +266,7 @@ def train_di_vae(vae_model, domain_discriminator, horse_gan_disc, zebra_gan_disc
 
             try:
                 losses = train_step_di(  # Use the renamed train_step function
-                    vae_model, domain_discriminator, horse_gan_disc, zebra_gan_disc, x, d, vae_opt, gan_opt, epoch, clip_norm=1.0)  # Pass clip_norm
+                    vae_model, domain_discriminator, horse_gan_disc, zebra_gan_disc, x, d, vae_opt, horse_opt, zebra_opt, epoch, clip_norm=1.0)  # Pass clip_norm
                 for loss_key in epoch_losses:
                     # Handle potential NaN/Inf in returned losses defensively
                     loss_value = losses[loss_key]
@@ -379,13 +379,14 @@ if __name__ == '__main__':
     learning_rate = 1e-5  # Try an even lower learning rate
     print(f"Using Adam optimizer with learning_rate={learning_rate}")
     vae_opt = tf.keras.optimizers.Adam(learning_rate=learning_rate)
-    gan_opt = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    horse_opt = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    zebra_opt = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
     # --- Training ---
     epochs = 2000
     print(f"Starting training for {epochs} epochs...")
     train_di_vae(vae_model, domain_discriminator, horse_gan_disc,
-                 zebra_gan_disc, train_dataset, vae_opt, gan_opt, epochs=epochs)
+                 zebra_gan_disc, train_dataset, vae_opt, horse_opt, zebra_opt, epochs=epochs)
     print("Training finished.")
 
     # --- Final Model Saving ---
