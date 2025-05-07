@@ -15,7 +15,7 @@ EPOCH_CHECKPOINT = 50
 
 
 # Load previous epoch for resuming training, set to 0 if starting fresh
-PREVIOUS_EPOCH = 0
+PREVIOUS_EPOCH = 5150
 
 
 # Losses
@@ -351,12 +351,19 @@ if __name__ == '__main__':
             f"Initializing Domain Discriminator with latent_dim={latent_dim}...")
         domain_discriminator = linear_discriminator(
             latent_dim, 2)  # 2 classes for domain
+        # gan discriminators
+        horse_gan_disc = build_img_discriminator(input_shape)
+        zebra_gan_disc = build_img_discriminator(input_shape)
     else:
         print(f"Loading trained models...")
         vae_model = tf.keras.models.load_model(
             f"{CHECKPOINT_PATH}/vae-e{PREVIOUS_EPOCH}.keras", compile=False, custom_objects={'Sampling': Sampling, 'VAE': VAE})
         domain_discriminator = tf.keras.models.load_model(
             f"{CHECKPOINT_PATH}/domain_discriminator-e{PREVIOUS_EPOCH}.keras", compile=False)
+        horse_gan_disc = tf.keras.models.load_model(
+            f"{CHECKPOINT_PATH}/horse_disc-e{PREVIOUS_EPOCH}.keras", compile=False)
+        zebra_gan_disc = tf.keras.models.load_model(
+            f"{CHECKPOINT_PATH}/zebra_disc-e{PREVIOUS_EPOCH}.keras", compile=False)
 
     # Build the VAE model by calling it once (helps with saving/loading)
     # Use tf.data.Dataset.take(1) to get one batch, then next(iter(...))
@@ -370,10 +377,6 @@ if __name__ == '__main__':
         (sample_input.shape[0], latent_dim))  # Match batch size
     _ = domain_discriminator(sample_latent)
     domain_discriminator.summary()  # Print discriminator summary
-
-    # gan discriminators
-    horse_gan_disc = build_img_discriminator(input_shape)
-    zebra_gan_disc = build_img_discriminator(input_shape)
 
     # --- Optimizer ---
     learning_rate = 1e-5  # Try an even lower learning rate
