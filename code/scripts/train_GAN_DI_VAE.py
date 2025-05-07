@@ -67,7 +67,7 @@ def train_step_di(vae_model, domain_discriminator, horse_gan_disc, zebra_gan_dis
     is_horse = tf.equal(d, 0)
     is_zebra = tf.equal(d, 1)
 
-    with tf.GradientTape() as tape:
+    with tf.GradientTape(persistent=True) as tape:
         # --- VAE Forward Pass ---
 
         # Usual VAE losses
@@ -233,6 +233,8 @@ def train_step_di(vae_model, domain_discriminator, horse_gan_disc, zebra_gan_dis
         grads_z = tape.gradient(L_d_zebra, zebra_gan_disc.trainable_variables)
         gan_opt.apply_gradients(
             zip(grads_z, zebra_gan_disc.trainable_variables))
+
+    del tape  # Free up memory
 
     # Return metrics
     return {
