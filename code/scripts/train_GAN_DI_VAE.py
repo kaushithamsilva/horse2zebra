@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 import model_utils
 
-# Assuming this function is defined elsewhere and returns normalized w, b
+# returns normalized w, b
 from hyperplane import get_hyperplane
 
 
@@ -15,7 +15,7 @@ EPOCH_CHECKPOINT = 50
 
 
 # Load previous epoch for resuming training, set to 0 if starting fresh
-PREVIOUS_EPOCH = 5150
+PREVIOUS_EPOCH = 5000
 
 
 # Losses
@@ -28,7 +28,7 @@ ce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 def build_img_discriminator(input_shape):
     inp = tf.keras.Input(shape=input_shape)
     x = inp
-    for filters in [64, 128, 256, 512]:
+    for filters in [64, 128, 256]:
         x = tf.keras.layers.Conv2D(
             filters, 4, strides=2, padding='same', use_bias=False)(x)
         x = tf.keras.layers.BatchNormalization()(x)
@@ -360,10 +360,15 @@ if __name__ == '__main__':
             f"{CHECKPOINT_PATH}/vae-e{PREVIOUS_EPOCH}.keras", compile=False, custom_objects={'Sampling': Sampling, 'VAE': VAE})
         domain_discriminator = tf.keras.models.load_model(
             f"{CHECKPOINT_PATH}/domain_discriminator-e{PREVIOUS_EPOCH}.keras", compile=False)
-        horse_gan_disc = tf.keras.models.load_model(
-            f"{CHECKPOINT_PATH}/horse_disc-e{PREVIOUS_EPOCH}.keras", compile=False)
-        zebra_gan_disc = tf.keras.models.load_model(
-            f"{CHECKPOINT_PATH}/zebra_disc-e{PREVIOUS_EPOCH}.keras", compile=False)
+        if PREVIOUS_EPOCH == 5000:
+            # If starting fresh, initialize GAN discriminators
+            horse_gan_disc = build_img_discriminator(input_shape)
+            zebra_gan_disc = build_img_discriminator(input_shape)
+        else:
+            horse_gan_disc = tf.keras.models.load_model(
+                f"{CHECKPOINT_PATH}/horse_disc-e{PREVIOUS_EPOCH}.keras", compile=False)
+            zebra_gan_disc = tf.keras.models.load_model(
+                f"{CHECKPOINT_PATH}/zebra_disc-e{PREVIOUS_EPOCH}.keras", compile=False)
 
     # Build the VAE model by calling it once (helps with saving/loading)
     # Use tf.data.Dataset.take(1) to get one batch, then next(iter(...))
@@ -386,7 +391,7 @@ if __name__ == '__main__':
     zebra_opt = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
     # --- Training ---
-    epochs = 2000
+    epochs = 1000
     print(f"Starting training for {epochs} epochs...")
     train_di_vae(vae_model, domain_discriminator, horse_gan_disc,
                  zebra_gan_disc, train_dataset, vae_opt, horse_opt, zebra_opt, epochs=epochs)
