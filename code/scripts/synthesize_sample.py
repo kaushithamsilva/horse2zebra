@@ -70,4 +70,4 @@ if __name__ == "__main__":
     plt.imshow(synthesized.numpy().reshape(256, 256, 3))
 
     plt.savefig(f"synthesized_zebra-e{epochs}.png", bbox_inches='tight')
-    print("Synthesized zebra image saved as synthesized_zebra-e{epochs}.png")
+    print(f"Synthesized zebra image saved as synthesized_zebra-e{epochs}.png")
