@@ -9,7 +9,7 @@ import init_gpu
 # --- Configuration ---
 DATA_PATH = "../../dataset/"
 CHECKPOINT_PATH = '../../models/gan_di_vae/checkpoints'
-EPOCH = 5200
+EPOCH = 5000
 LATENT_DIM = 128
 N_STEPS = 10
 
