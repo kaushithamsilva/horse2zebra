@@ -10,14 +10,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 from hyperplane import Hyperplane
 
-SAVE_PATH = '../../models/di_vae/'
+SAVE_PATH = '../../models/gan_di_vae'
 CHECKPOINT_PATH = SAVE_PATH + 'checkpoints'
 
 if __name__ == "__main__":
     init_gpu.initialize_gpus()
 
     # load models
-    epochs = 450
+    epochs = 5200
     vae_model = tf.keras.models.load_model(
         f"{CHECKPOINT_PATH}/vae-e{epochs}.keras", compile=False, custom_objects={'Sampling': Sampling, 'VAE': VAE})
     domain_discriminator = tf.keras.models.load_model(
